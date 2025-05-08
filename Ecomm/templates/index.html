@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Home - E-commerce Website{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="jumbotron">
+        <h1 class="display-4">Welcome to Our E-commerce Website</h1>
+        <p class="lead">Your one-stop shop for all your needs.</p>
+        <hr class="my-4">
+        <p>Choose your role to get started:</p>
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Buyer</h5>
+                        <p class="card-text">Browse and purchase products from our sellers.</p>
+                        <a href="{{ url_for('buyer') }}" class="btn btn-primary">Go to Buyer Page</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Seller</h5>
+                        <p class="card-text">List and manage your products for sale.</p>
+                        <a href="{{ url_for('seller') }}" class="btn btn-success">Go to Seller Page</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Admin</h5>
+                        <p class="card-text">Manage users and monitor the platform.</p>
+                        <a href="{{ url_for('admin') }}" class="btn btn-danger">Go to Admin Page</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

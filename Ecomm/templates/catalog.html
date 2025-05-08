@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}My Purchases{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>My Purchase History</h2>
+        <a href="{{ url_for('buyer', buyer_id=buyer_id) }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Products
+        </a>
+    </div>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        {% if orders %}
+            {% for order in orders %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ order.product.name }}</h5>
+                        <p class="card-text">
+                            <strong>Price:</strong> ${{ "%.2f"|format(order.product.price) }}<br>
+                            <strong>Seller:</strong> {{ order.product.seller.username }}<br>
+                            <strong>Order Date:</strong> {{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}<br>
+                            <strong>Status:</strong> 
+                            <span class="badge {% if order.status == 'Pending' %}bg-warning{% elif order.status == 'Completed' %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ order.status }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="trackOrder('{{ order.id }}')">
+                            <i class="bi bi-truck"></i> Track Order
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    You haven't made any purchases yet. 
+                    <a href="{{ url_for('buyer', buyer_id=buyer_id) }}" class="alert-link">Browse products</a> to start shopping!
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    function trackOrder(orderId) {
+        // This is a placeholder for order tracking functionality
+        alert('Order tracking feature coming soon!');
+    }
+</script>
+{% endblock %}
+{% endblock %} 

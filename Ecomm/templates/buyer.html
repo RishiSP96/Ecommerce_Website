@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Buyer Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Available Products</h2>
+        <div class="d-flex align-items-center gap-3">
+            <div class="dropdown">
+                <button class="btn btn-outline-primary dropdown-toggle" type="button" id="buyerSelector" data-bs-toggle="dropdown" aria-expanded="false">
+                    {% if selected_buyer_id %}
+                        {% for buyer in buyers %}
+                            {% if buyer.id == selected_buyer_id %}
+                                {{ buyer.username }}
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        Select Buyer
+                    {% endif %}
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="buyerSelector">
+                    {% for buyer in buyers %}
+                        <li>
+                            <a class="dropdown-item {% if buyer.id == selected_buyer_id %}active{% endif %}" 
+                               href="{{ url_for('buyer', buyer_id=buyer.id) }}">
+                                {{ buyer.username }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <a href="{{ url_for('catalog', buyer_id=selected_buyer_id) }}" class="btn btn-primary">
+                <i class="bi bi-bag"></i> My Purchases
+            </a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if not selected_buyer_id %}
+        <div class="alert alert-warning">
+            Please select a buyer to start shopping.
+        </div>
+    {% else %}
+        <div class="row">
+            {% if products %}
+                {% for product in products %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ product.name }}</h5>
+                            <p class="card-text">
+                                <strong>Price:</strong> ${{ "%.2f"|format(product.price) }}<br>
+                                <strong>Seller:</strong> {{ product.seller.username }}
+                            </p>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <form action="{{ url_for('purchase_product', product_id=product.id, buyer_id=selected_buyer_id) }}" method="POST" class="d-inline">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-cart-plus"></i> Buy Now
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        No products available at the moment.
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
