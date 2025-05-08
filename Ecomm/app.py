@@ -5,7 +5,7 @@ import os
 
 app = Flask(__name__)
 
-# Set secret key for session management
+# Set secret key for session management. ok?
 app.secret_key = os.urandom(24)  # Generate a random secret key
 
 # Database Configuration (SQLite)
