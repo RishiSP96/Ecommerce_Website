@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Order #{{ order.id }} - E-commerce Website{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('orders') }}">Orders</a></li>
+            <li class="breadcrumb-item active">Order #{{ order.id }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Order #{{ order.id }}</h5>
+                    <span class="badge 
+                        {% if order.status == 'Pending' %}bg-warning
+                        {% elif order.status == 'Processing' %}bg-info
+                        {% elif order.status == 'Shipped' %}bg-primary
+                        {% elif order.status == 'Delivered' %}bg-success
+                        {% else %}bg-secondary{% endif %}">
+                        {{ order.status }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Quantity</th>
+                                <th>Price</th>
+                                <th>Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in order.items %}
+                            <tr>
+                                <td>{{ item.product.name }}</td>
+                                <td>{{ item.quantity }}</td>
+                                <td>${{ "%.2f"|format(item.price) }}</td>
+                                <td>${{ "%.2f"|format(item.price * item.quantity) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th colspan="3">Total:</th>
+                                <th>${{ "%.2f"|format(order.total_amount) }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            {% if order.shipping_address %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>Shipping Address</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ order.shipping_address }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Order Information</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Order Date:</strong><br>{{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    <p><strong>Last Updated:</strong><br>{{ order.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    <p><strong>Buyer:</strong><br>{{ order.buyer.username }}</p>
+                </div>
+            </div>
+
+            {% if session.role in ['seller', 'admin'] %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>Update Status</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('update_order_status', order_id=order.id) }}">
+                        <select class="form-select mb-2" name="status">
+                            <option value="Pending" {% if order.status == 'Pending' %}selected{% endif %}>Pending</option>
+                            <option value="Processing" {% if order.status == 'Processing' %}selected{% endif %}>Processing</option>
+                            <option value="Shipped" {% if order.status == 'Shipped' %}selected{% endif %}>Shipped</option>
+                            <option value="Delivered" {% if order.status == 'Delivered' %}selected{% endif %}>Delivered</option>
+                            <option value="Cancelled" {% if order.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary w-100">Update Status</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

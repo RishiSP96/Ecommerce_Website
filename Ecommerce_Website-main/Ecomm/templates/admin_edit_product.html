@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Product (Admin) - E-commerce Website{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
+            <li class="breadcrumb-item active">Edit Product #{{ product.id }}</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h3 class="card-title mb-0">
+                        <i class="bi bi-pencil"></i> Edit Product (Admin)
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <strong>Admin Edit Mode:</strong> You can edit any product details regardless of the seller.
+                    </div>
+
+                    <div class="mb-3">
+                        <strong>Current Seller:</strong> {{ product.seller.username }}
+                    </div>
+
+                    <form method="POST" action="{{ url_for('admin_edit_product', product_id=product.id) }}">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Product Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{{ product.name }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="4">{{ product.description or '' }}</textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="price" class="form-label">Price *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="price" name="price" 
+                                           step="0.01" min="0" value="{{ product.price }}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="stock" class="form-label">Stock Quantity</label>
+                                <input type="number" class="form-control" id="stock" name="stock" 
+                                       min="0" value="{{ product.stock }}">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="category_id" class="form-label">Category</label>
+                                <select class="form-select" id="category_id" name="category_id">
+                                    <option value="">Select a category...</option>
+                                    {% for category in categories %}
+                                        <option value="{{ category.id }}" 
+                                                {% if product.category_id == category.id %}selected{% endif %}>
+                                            {{ category.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="image_url" class="form-label">Image URL</label>
+                                <input type="url" class="form-control" id="image_url" name="image_url" 
+                                       value="{{ product.image_url or '' }}" 
+                                       placeholder="https://example.com/image.jpg">
+                                {% if product.image_url %}
+                                <small class="form-text text-muted">
+                                    Current image: <a href="{{ product.image_url }}" target="_blank">View</a>
+                                </small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Preview</label>
+                            <div class="border rounded p-3 bg-light">
+                                {% if product.image_url %}
+                                    <img src="{{ product.image_url }}" class="img-fluid rounded mb-2" 
+                                         alt="{{ product.name }}" style="max-height: 200px;" id="imagePreview">
+                                {% else %}
+                                    <div class="bg-light d-flex align-items-center justify-content-center rounded mb-2" 
+                                         style="height: 200px;" id="imagePreview">
+                                        <i class="bi bi-image" style="font-size: 3rem; color: #ccc;"></i>
+                                    </div>
+                                {% endif %}
+                                <p class="mb-0"><strong id="namePreview">{{ product.name }}</strong></p>
+                                <p class="mb-0 text-muted" id="pricePreview">${{ "%.2f"|format(product.price) }}</p>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to Dashboard
+                            </a>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="bi bi-check-circle"></i> Update Product
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Live preview updates
+document.getElementById('name').addEventListener('input', function() {
+    document.getElementById('namePreview').textContent = this.value || 'Product Name';
+});
+
+document.getElementById('price').addEventListener('input', function() {
+    const price = parseFloat(this.value) || 0;
+    document.getElementById('pricePreview').textContent = '$' + price.toFixed(2);
+});
+
+document.getElementById('image_url').addEventListener('input', function() {
+    const url = this.value;
+    const preview = document.getElementById('imagePreview');
+    
+    if (url) {
+        preview.innerHTML = `<img src="${url}" class="img-fluid rounded" alt="Preview" style="max-height: 200px;" onerror="this.parentElement.innerHTML='<i class=\\'bi bi-image\\' style=\\'font-size: 3rem; color: #ccc;\\'></i>'">`;
+    } else {
+        preview.innerHTML = '<i class="bi bi-image" style="font-size: 3rem; color: #ccc;"></i>';
+    }
+});
+</script>
+{% endblock %}
+
