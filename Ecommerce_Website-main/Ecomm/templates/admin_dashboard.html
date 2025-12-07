@@ -178,7 +178,7 @@
     </div>
 
     <!-- Users Management -->
-    <div class="card">
+    <div class="card mb-4">
         <div class="card-header">
             <h5 class="mb-0">All Users</h5>
         </div>
@@ -220,6 +220,88 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- User Credentials -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">User Credentials</h5>
+            <small class="text-muted">User registration credentials with passwords.</small>
+        </div>
+        <div class="card-body">
+            {% if users %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Password</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.id }}</td>
+                            <td>{{ user.username }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                <div class="input-group" style="max-width: 400px;">
+                                    <input type="password" 
+                                           class="form-control password-field" 
+                                           id="password-{{ user.id }}" 
+                                           value="{{ user.password_plain if user.password_plain else 'N/A' }}" 
+                                           readonly
+                                           style="font-family: monospace; font-size: 0.9em;">
+                                    <button class="btn btn-outline-secondary toggle-password" 
+                                            type="button" 
+                                            data-target="password-{{ user.id }}"
+                                            title="Show/Hide Password">
+                                        <i class="bi bi-eye" id="eye-{{ user.id }}"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted">No users yet.</p>
+            {% endif %}
+        </div>
+    </div>
 </div>
+
+<style>
+    .password-field {
+        font-family: 'Courier New', monospace;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add event listeners to all toggle password buttons
+        const toggleButtons = document.querySelectorAll('.toggle-password');
+        
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                const passwordField = document.getElementById(targetId);
+                const eyeIcon = this.querySelector('i');
+                
+                if (passwordField.type === 'password') {
+                    passwordField.type = 'text';
+                    eyeIcon.classList.remove('bi-eye');
+                    eyeIcon.classList.add('bi-eye-slash');
+                } else {
+                    passwordField.type = 'password';
+                    eyeIcon.classList.remove('bi-eye-slash');
+                    eyeIcon.classList.add('bi-eye');
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}
 

@@ -24,6 +24,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    password_plain = db.Column(db.String(255), nullable=True)  # Store plain text password for admin viewing
     role = db.Column(db.String(10), nullable=False, default='buyer')  # 'buyer', 'seller', 'admin'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -31,6 +32,8 @@ class User(db.Model):
     products = db.relationship('Product', backref='seller', lazy=True, cascade='all, delete-orphan')
     orders = db.relationship('Order', backref='buyer', lazy=True)
     cart_items = db.relationship('CartItem', backref='user', lazy=True, cascade='all, delete-orphan')
+    wishlist_items = db.relationship('WishlistItem', backref='user', lazy=True, cascade='all, delete-orphan')
+    reviews = db.relationship('Review', backref='user', lazy=True, cascade='all, delete-orphan')
 
 class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -43,14 +46,18 @@ class Product(db.Model):
     description = db.Column(db.Text, nullable=True)
     price = db.Column(db.Float, nullable=False)
     image_url = db.Column(db.String(500), nullable=True)
+    additional_images = db.Column(db.Text, nullable=True)  # JSON string of image URLs
+    video_url = db.Column(db.String(500), nullable=True)  # YouTube/Vimeo embed URL
     stock = db.Column(db.Integer, default=0, nullable=False)
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=True)
     seller_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     order_items = db.relationship('OrderItem', backref='product', lazy=True)
     cart_items = db.relationship('CartItem', backref='product', lazy=True, cascade='all, delete-orphan')
+    wishlist_items = db.relationship('WishlistItem', backref='product', lazy=True, cascade='all, delete-orphan')
+    reviews = db.relationship('Review', backref='product', lazy=True, cascade='all, delete-orphan')
 
 class CartItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -78,6 +85,20 @@ class OrderItem(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Float, nullable=False)  # Price at time of purchase
+
+class WishlistItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Review(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)  # 1-5 stars
+    comment = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # ==================== AUTHENTICATION HELPERS ====================
 
@@ -138,8 +159,8 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip()
-        password = request.form.get('password', '')
-        role = request.form.get('role', 'buyer')
+        password = request.form.get('password', '').strip()
+        role = request.form.get('role', 'buyer').strip()
         
         if not all([username, email, password]):
             flash('All fields are required!', 'danger')
@@ -158,6 +179,7 @@ def register():
                 username=username,
                 email=email,
                 password_hash=generate_password_hash(password),
+                password_plain=password,  # Store plain text password for admin viewing
                 role=role
             )
             db.session.add(user)
@@ -176,29 +198,42 @@ def login():
     """User login"""
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
+        password = request.form.get('password', '').strip()
         
         if not all([username, password]):
             flash('Please enter both username and password.', 'danger')
             return redirect(url_for('login'))
         
-        user = User.query.filter_by(username=username).first()
-        
-        if user and check_password_hash(user.password_hash, password):
-            session['user_id'] = user.id
-            session['username'] = user.username
-            session['role'] = user.role
-            flash(f'Welcome back, {user.username}!', 'success')
+        try:
+            user = User.query.filter_by(username=username).first()
             
-            # Redirect based on role
-            if user.role == 'admin':
-                return redirect(url_for('admin_dashboard'))
-            elif user.role == 'seller':
-                return redirect(url_for('seller_dashboard'))
+            if not user:
+                flash('Invalid username or password.', 'danger')
+                return redirect(url_for('login'))
+            
+            # Check if password_hash exists
+            if not user.password_hash:
+                flash('Account error. Please contact administrator.', 'danger')
+                return redirect(url_for('login'))
+            
+            if check_password_hash(user.password_hash, password):
+                session['user_id'] = user.id
+                session['username'] = user.username
+                session['role'] = user.role
+                flash(f'Welcome back, {user.username}!', 'success')
+                
+                # Redirect based on role
+                if user.role == 'admin':
+                    return redirect(url_for('admin_dashboard'))
+                elif user.role == 'seller':
+                    return redirect(url_for('seller_dashboard'))
+                else:
+                    return redirect(url_for('home'))
             else:
-                return redirect(url_for('home'))
-        else:
-            flash('Invalid username or password.', 'danger')
+                flash('Invalid username or password.', 'danger')
+                return redirect(url_for('login'))
+        except Exception as e:
+            flash(f'Login error: {str(e)}. Please try again or contact administrator.', 'danger')
             return redirect(url_for('login'))
     
     return render_template("login.html")
@@ -253,8 +288,15 @@ def product_detail(product_id):
         Product.id != product_id,
         Product.stock > 0
     ).limit(4).all()
-    
-    return render_template("product_detail.html", product=product, related_products=related_products)
+
+    # Get reviews and calculate average rating
+    reviews = Review.query.filter_by(product_id=product_id).order_by(Review.created_at.desc()).all()
+    avg_rating = 0
+    if reviews:
+        avg_rating = sum(r.rating for r in reviews) / len(reviews)
+
+    return render_template("product_detail.html", product=product, related_products=related_products,
+                         reviews=reviews, avg_rating=round(avg_rating, 1))
 
 # ==================== CART ROUTES ====================
 
@@ -325,15 +367,63 @@ def update_cart(cart_item_id):
 def remove_from_cart(cart_item_id):
     """Remove item from cart"""
     cart_item = CartItem.query.get_or_404(cart_item_id)
-    
+
     if cart_item.user_id != session['user_id']:
         flash('Unauthorized access.', 'danger')
         return redirect(url_for('cart'))
-    
+
     db.session.delete(cart_item)
     db.session.commit()
     flash('Item removed from cart.', 'info')
     return redirect(url_for('cart'))
+
+# ==================== WISHLIST ROUTES ====================
+
+@app.route("/wishlist")
+@login_required
+def wishlist():
+    """User's wishlist"""
+    user_id = session['user_id']
+    wishlist_items = WishlistItem.query.filter_by(user_id=user_id).all()
+
+    return render_template("wishlist.html", wishlist_items=wishlist_items)
+
+@app.route("/add_to_wishlist/<int:product_id>", methods=['POST'])
+@login_required
+def add_to_wishlist(product_id):
+    """Add product to wishlist"""
+    user_id = session['user_id']
+    product = Product.query.get_or_404(product_id)
+
+    # Check if item already in wishlist
+    wishlist_item = WishlistItem.query.filter_by(user_id=user_id, product_id=product_id).first()
+
+    if wishlist_item:
+        flash(f'{product.name} is already in your wishlist!', 'info')
+    else:
+        wishlist_item = WishlistItem(user_id=user_id, product_id=product_id)
+        db.session.add(wishlist_item)
+        db.session.commit()
+        flash(f'{product.name} added to wishlist!', 'success')
+
+    return redirect(request.referrer or url_for('product_detail', product_id=product_id))
+
+@app.route("/remove_from_wishlist/<int:product_id>", methods=['POST'])
+@login_required
+def remove_from_wishlist(product_id):
+    """Remove product from wishlist"""
+    user_id = session['user_id']
+    wishlist_item = WishlistItem.query.filter_by(user_id=user_id, product_id=product_id).first()
+
+    if wishlist_item:
+        product_name = wishlist_item.product.name
+        db.session.delete(wishlist_item)
+        db.session.commit()
+        flash(f'{product_name} removed from wishlist.', 'info')
+    else:
+        flash('Item not found in wishlist.', 'warning')
+
+    return redirect(request.referrer or url_for('wishlist'))
 
 # ==================== CHECKOUT ROUTES ====================
 
@@ -672,6 +762,165 @@ def inject_cart_count():
         pass
     return dict(cart_count=cart_count)
 
+# ==================== DIAGNOSTIC ROUTES ====================
+
+@app.route("/check_admin")
+def check_admin():
+    """Check admin accounts in database (for debugging)"""
+    try:
+        admins = User.query.filter_by(role='admin').all()
+        result = []
+        for admin in admins:
+            # Test if password works
+            password_works = check_password_hash(admin.password_hash, 'admin123') if admin.password_hash else False
+            result.append({
+                'id': admin.id,
+                'username': admin.username,
+                'email': admin.email,
+                'role': admin.role,
+                'created_at': str(admin.created_at),
+                'password_works': password_works,
+                'has_password_hash': bool(admin.password_hash),
+                'password_hash_preview': admin.password_hash[:30] + '...' if admin.password_hash else 'None'
+            })
+        return jsonify({'admins': result, 'count': len(result)})
+    except Exception as e:
+        return jsonify({'error': str(e), 'admins': [], 'count': 0}), 500
+
+@app.route("/test_login/<username>/<password>")
+def test_login(username, password):
+    """Test login credentials (for debugging)"""
+    try:
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            return jsonify({
+                'success': False,
+                'message': f'User "{username}" not found',
+                'user_exists': False
+            })
+        
+        if not user.password_hash:
+            return jsonify({
+                'success': False,
+                'message': 'User has no password hash',
+                'user_exists': True,
+                'has_password_hash': False
+            })
+        
+        password_correct = check_password_hash(user.password_hash, password)
+        
+        return jsonify({
+            'success': password_correct,
+            'message': 'Password correct' if password_correct else 'Password incorrect',
+            'user_exists': True,
+            'has_password_hash': True,
+            'username': user.username,
+            'role': user.role,
+            'password_hash_preview': user.password_hash[:30] + '...'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route("/fix_admin_account")
+def fix_admin_account():
+    """Fix or create admin account"""
+    try:
+        admin = User.query.filter_by(username='admin').first()
+        
+        if admin:
+            # Update existing admin
+            admin.password_hash = generate_password_hash('admin123')
+            admin.password_plain = 'admin123'
+            admin.role = 'admin'
+            admin.email = 'admin@example.com'
+            db.session.commit()
+            
+            # Verify it works
+            admin_check = User.query.filter_by(username='admin').first()
+            password_works = check_password_hash(admin_check.password_hash, 'admin123')
+            
+            return f"""Admin account updated!<br>
+            Username: admin<br>
+            Password: admin123<br>
+            Password verified: {'Yes' if password_works else 'No'}<br>
+            <a href='/login'>Go to Login</a>"""
+        else:
+            # Create new admin
+            admin = User(
+                username='admin',
+                email='admin@example.com',
+                password_hash=generate_password_hash('admin123'),
+                password_plain='admin123',
+                role='admin'
+            )
+            db.session.add(admin)
+            db.session.commit()
+            
+            # Verify it works
+            admin_check = User.query.filter_by(username='admin').first()
+            password_works = check_password_hash(admin_check.password_hash, 'admin123')
+            
+            return f"""Admin account created!<br>
+            Username: admin<br>
+            Password: admin123<br>
+            Password verified: {'Yes' if password_works else 'No'}<br>
+            <a href='/login'>Go to Login</a>"""
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        return f"Error fixing admin account: {str(e)}<br><pre>{error_details}</pre><br><a href='/admin_fix'>Go to Admin Fix Page</a>"
+
+@app.route("/admin_fix")
+def admin_fix():
+    """Admin account diagnostic and fix page"""
+    return render_template("admin_fix.html")
+
+@app.route("/migrate_password_plain")
+def migrate_password_plain():
+    """Migrate database to add password_plain column"""
+    try:
+        with app.app_context():
+            # Check if column exists
+            from sqlalchemy import inspect, text
+            inspector = inspect(db.engine)
+            columns = [col['name'] for col in inspector.get_columns('user')]
+            
+            if 'password_plain' not in columns:
+                # Add the column using raw SQL (SQLite compatible)
+                with db.engine.connect() as conn:
+                    conn.execute(text('ALTER TABLE user ADD COLUMN password_plain VARCHAR(255)'))
+                    conn.commit()
+                return "Migration successful! password_plain column added.<br><a href='/admin/dashboard'>Go to Admin Dashboard</a>"
+            else:
+                return "Column already exists. No migration needed.<br><a href='/admin/dashboard'>Go to Admin Dashboard</a>"
+    except Exception as e:
+        return f"Migration error: {str(e)}<br><a href='/admin/dashboard'>Go to Admin Dashboard</a>"
+
+@app.route("/reset_admin_password", methods=['POST'])
+def reset_admin_password():
+    """Reset admin password (for debugging - remove in production)"""
+    username = request.form.get('username', 'admin').strip()
+    new_password = request.form.get('password', '').strip()
+    
+    if not new_password:
+        return jsonify({'success': False, 'message': 'Password required'}), 400
+    
+    admin = User.query.filter_by(username=username, role='admin').first()
+    if not admin:
+        return jsonify({'success': False, 'message': 'Admin user not found'}), 404
+    
+    try:
+        admin.password_hash = generate_password_hash(new_password)
+        admin.password_plain = new_password  # Update plain text password
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Password reset for {username}. You can now login with the new password.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
 # ==================== INITIALIZATION ====================
 
 @app.route("/init_db")
@@ -686,6 +935,7 @@ def init_db():
             username='admin',
             email='admin@example.com',
             password_hash=generate_password_hash('admin123'),
+            password_plain='admin123',  # Store plain text password for admin viewing
             role='admin'
         )
         db.session.add(admin)
@@ -695,12 +945,14 @@ def init_db():
             username='buyer1',
             email='buyer1@example.com',
             password_hash=generate_password_hash('buyer123'),
+            password_plain='buyer123',  # Store plain text password for admin viewing
             role='buyer'
         )
         seller = User(
             username='seller1',
             email='seller1@example.com',
             password_hash=generate_password_hash('seller123'),
+            password_plain='seller123',  # Store plain text password for admin viewing
             role='seller'
         )
         db.session.add(buyer)
@@ -739,17 +991,17 @@ def init_db():
 
 # Initialize database tables if they don't exist
 def init_database():
-    """Initialize database tables"""
+    """Initialize database tables and create default admin user"""
     with app.app_context():
         try:
             # Check if tables exist by inspecting the database
             from sqlalchemy import inspect
             inspector = inspect(db.engine)
             existing_tables = inspector.get_table_names()
-            
+
             # Required tables
             required_tables = ['user', 'category', 'product', 'cart_item', 'order', 'order_item']
-            
+
             # Check if all required tables exist with correct structure
             if not all(table in existing_tables for table in required_tables):
                 print("Creating database tables...")
@@ -767,6 +1019,26 @@ def init_database():
                     db.drop_all()
                     db.create_all()
                     print("Database tables recreated successfully!")
+
+            # Ensure admin user exists
+            admin_user = User.query.filter_by(username='admin').first()
+            if not admin_user:
+                print("Creating default admin user...")
+                admin = User(
+                    username='admin',
+                    email='admin@example.com',
+                    password_hash=generate_password_hash('admin123'),
+                    password_plain='admin123',  # Store plain text password for admin viewing
+                    role='admin'
+                )
+                db.session.add(admin)
+                db.session.commit()
+                print("Default admin user created successfully!")
+                print("Username: admin")
+                print("Password: admin123")
+            else:
+                print("Admin user already exists.")
+
         except Exception as e:
             # If inspection fails, try to create tables anyway
             print(f"Checking database... Error: {e}")
